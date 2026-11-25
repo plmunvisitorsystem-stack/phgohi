@@ -81,6 +81,24 @@
             margin-top: 10px;
             margin-left: 8px;
         }
+
+        /* ✅ CUSTOM TOAST NOTIFICATION CSS */
+        .custom-toast {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px);
+            background: #1f2937; color: white; padding: 15px 25px; border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 15px;
+            z-index: 10000; opacity: 0; transition: all 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            border-left: 5px solid #3b82f6; min-width: 300px;
+        }
+        .custom-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .custom-toast.error { border-left-color: #ef4444; }
+        .custom-toast.success { border-left-color: #10b981; }
+        .toast-content { display: flex; align-items: center; gap: 10px; }
+        .toast-content i { font-size: 20px; color: #3b82f6; }
+        .custom-toast.error i { color: #ef4444; }
+        .custom-toast.success i { color: #10b981; }
+        .toast-message { font-size: 14px; font-weight: 500; }
+
         @media (max-width: 768px) {
             .main-content { padding: 20px 15px; }
             .welcome-banner { padding: 25px; }
@@ -90,6 +108,14 @@
     </style>
 </head>
 <body>
+
+<!-- ✅ CUSTOM TOAST HTML -->
+<div id="customToast" class="custom-toast">
+    <div class="toast-content">
+        <i class="bi bi-info-circle-fill" id="toastIcon"></i>
+        <div class="toast-message" id="toastMessage"></div>
+    </div>
+</div>
 
 <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
 
@@ -171,7 +197,6 @@
                 <span class="text-white-50">to</span>
                 <input type="date" id="endDate" class="form-control" style="width: auto; background: #1f2937; color: white; border: 1px solid #374151;">
                 <button class="btn btn-primary btn-sm" onclick="filterByDate()">Filter</button>
-                <!-- DINAGDAG ANG RESET BUTTON -->
                 <button class="btn btn-secondary btn-sm" onclick="resetFilter()">Reset</button>
                 <button class="btn btn-success btn-sm" onclick="exportToCSV()">📥 Export CSV</button>
             </div>
@@ -208,6 +233,26 @@
         localStorage.removeItem('currentUser');
         window.location.href = 'login.html';
     }
+
+    // ✅ CUSTOM TOAST FUNCTION
+    function showToast(message, type = 'success') {
+        const toast = document.getElementById('customToast');
+        const icon = document.getElementById('toastIcon');
+        document.getElementById('toastMessage').innerText = message;
+        
+        if (type === 'success') {
+            icon.className = "bi bi-check-circle-fill";
+            toast.className = "custom-toast success show";
+        } else if (type === 'error') {
+            icon.className = "bi bi-x-circle-fill";
+            toast.className = "custom-toast error show";
+        } else {
+            icon.className = "bi bi-info-circle-fill";
+            toast.className = "custom-toast show";
+        }
+
+        setTimeout(() => { toast.classList.remove('show'); }, 4000);
+    }
 </script>
 
 <script type="module">
@@ -227,7 +272,7 @@
     const db = getFirestore(app);
 
     let allLogs = [];
-    let isFiltered = false; // ✅ FLAG PARA MALAMAN KUNG NAKA-FILTER
+    let isFiltered = false;
 
     const RESET_HOUR_PH = 0;
     const RESET_MIN_PH  = 0;
@@ -285,7 +330,6 @@
     }
 
     async function fetchDashboardData() {
-        // ✅ KUNG NAKA-FILTER, WAG NANG I-OVERRIDE ANG TABLE
         if (isFiltered) return;
 
         try {
@@ -349,7 +393,6 @@
         renderTable(filteredLogs);
     }
 
-    // ✅ RESET FILTER FUNCTION
     window.resetFilter = function() {
         isFiltered = false;
         document.getElementById('startDate').value = '';
@@ -360,7 +403,7 @@
     window.filterByDate = async function() {
         const startDate = document.getElementById('startDate').value;
         const endDate = document.getElementById('endDate').value;
-        if (!startDate || !endDate) { alert("Select both dates."); return; }
+        if (!startDate || !endDate) { showToast("Please select both dates.", "error"); return; }
 
         const start = new Date(startDate + 'T00:00:00+08:00');
         const end = new Date(endDate + 'T23:59:59+08:00');
@@ -370,21 +413,21 @@
 
         try {
             const snapshot = await getDocs(q);
-            allLogs = []; // ✅ Burahin muna ang lumang data
+            allLogs = [];
             snapshot.forEach(doc => {
                 const data = doc.data();
                 allLogs.push({ name: data.fullName, action: data.action, gate: data.gate, time: formatDate(data.timestamp) });
             });
             
-            isFiltered = true; // ✅ I-SET ANG FLAG
+            isFiltered = true;
             renderTable(allLogs);
-            alert(`Showing ${allLogs.length} records from ${startDate} to ${endDate}.`);
+            showToast(`Showing ${allLogs.length} records from ${startDate} to ${endDate}.`, 'success');
 
-        } catch (e) { alert("Filter failed: " + e.message); }
+        } catch (e) { showToast("Filter failed: " + e.message, 'error'); }
     }
 
     window.exportToCSV = function() {
-        if (allLogs.length === 0) { alert("No data to export."); return; }
+        if (allLogs.length === 0) { showToast("No data to export.", "error"); return; }
         let csv = "Name,Action,Gate,Date & Time\n";
         allLogs.forEach(log => { csv += `"${log.name}","${log.action}","${log.gate}","${log.time}"\n`; });
         const blob = new Blob([csv], { type: 'text/csv' });
